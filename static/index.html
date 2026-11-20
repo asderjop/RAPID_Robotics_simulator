@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAPID Studio 3D — Industrial Robot Simulator</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    :root {
+      --bg-dark: #11141a;
+      --bg-panel: #181c24;
+      --bg-input: #0e1116;
+      --border: #2a313e;
+      --text: #e6edf3;
+      --text-dim: #8b949e;
+      --accent: #ff6a00;
+      --accent-hover: #ff852b;
+      --cyan: #00e5ff;
+      --amber: #ffaa00;
+      --emerald: #34d399;
+      --green: #2ea043;
+      --red: #f85149;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      height: 54px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.4px;
+    }
+
+    .brand-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.8px;
+    }
+
+    .toolbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    select, button {
+      background: #222732;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 11px;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    select:hover, button:hover {
+      background: #2c3342;
+      border-color: #3f495d;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    button.primary:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .status-pill {
+      font-size: 11.5px;
+      padding: 4px 10px;
+      border-radius: 99px;
+      background: #222732;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .status-pill.running { color: #3fb950; border-color: #2ea043; background: rgba(46,160,67,0.12); }
+    .status-pill.error   { color: #f85149; border-color: #f85149; background: rgba(248,81,73,0.12); }
+
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .left-panel {
+      width: 420px;
+      min-width: 340px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mode-tabs {
+      display: flex;
+      background: #12161d;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mode-tab {
+      flex: 1;
+      padding: 10px 12px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--text-dim);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      cursor: pointer;
+    }
+
+    .mode-tab:hover { color: var(--text); background: #181d27; }
+    .mode-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: #181c24;
+    }
+
+    .sub-toolbar {
+      padding: 8px 12px;
+      background: #141820;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .sub-toolbar select { flex: 1; min-width: 170px; font-size: 12px; padding: 5px 8px; }
+
+    .snippet-bar {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      padding: 6px 12px;
+      background: #131720;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .snippet-btn {
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: #1e2430;
+      color: #a5b4fc;
+      border: 1px solid #2e3748;
+    }
+    .snippet-btn:hover { background: #293244; color: #fff; }
+
+    .panel-header {
+      padding: 7px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #141820;
+    }
+
+    .editor-wrapper {
+      flex: 1;
+      display: flex;
+      position: relative;
+      background: var(--bg-input);
+      overflow: hidden;
+    }
+
+    .line-numbers {
+      width: 38px;
+      padding: 12px 6px 12px 0;
+      text-align: right;
+      font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: #4f5969;
+      background: #12161d;
+      border-right: 1px solid #1f2530;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .line-numbers .active-ln { color: var(--accent); font-weight: 700; }
+
+    #codeEditor {
+      flex: 1;
+      background: transparent;
+      color: #d9e2ec;
+      border: none;
+      outline: none;
+      resize: none;
+      padding: 12px;
+      font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.55;
+      white-space: pre;
+      overflow: auto;
+      tab-size: 2;
+    }
+
+    .error-banner {
+      display: none;
+      background: rgba(248, 81, 73, 0.14);
+      border-top: 1px solid var(--red);
+      color: #ff9492;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    .console-box {
+      height: 138px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: #0c0f14;
+    }
+
+    #consoleOutput {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      font-family: Consolas, monospace;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #9fb3c8;
+    }
+
+    .log-entry { margin-bottom: 3px; }
+    .log-entry.info { color: #79c0ff; }
+    .log-entry.ok   { color: #56d364; }
+    .log-entry.err  { color: #ff7b72; }
+    .log-entry.tp   { color: #ffa657; }
+
+    .viewport-panel {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at center, #1b222e 0%, #0e1218 100%);
+      overflow: hidden;
+    }
+
+    #canvasContainer { width: 100%; height: 100%; }
+
+    .viewport-hud {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(17, 20, 26, 0.82);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .legend-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; }
+
+    .progress-bar-wrap {
+      position: absolute;
+      top: 12px; left: 14px; right: 14px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    #progressBar {
+      width: 0%; height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--cyan));
+      transition: width 0.05s linear;
+    }
+
+    .right-panel {
+      width: 295px;
+      min-width: 260px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tcp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+    .metric-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center;
+    }
+    .metric-label { font-size: 10.5px; color: var(--text-dim); margin-bottom: 3px; }
+    .metric-value { font-family: Consolas, monospace; font-size: 13.5px; font-weight: 700; color: var(--text); }
+
+    .io-row { display: flex; gap: 8px; margin-top: 8px; }
+    .io-pill {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11.5px;
+      font-family: monospace;
+    }
+    .led { width: 8px; height: 8px; border-radius: 50%; background: #3a4252; }
+    .led.on-green { background: #3fb950; box-shadow: 0 0 8px #3fb950; }
+    .led.on-cyan  { background: #00e5ff; box-shadow: 0 0 8px #00e5ff; }
+
+    .jog-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .jog-label { width: 24px; font-size: 11.5px; font-weight: 700; color: var(--text-dim); font-family: monospace; }
+    .jog-slider { flex: 1; accent-color: var(--accent); cursor: pointer; }
+    .jog-val { width: 48px; text-align: right; font-size: 11.5px; font-family: monospace; color: var(--text); }
+    .btn-block { width: 100%; margin-top: 6px; padding: 8px; font-weight: 600; }
+
+    .cmd-badge {
+      font-family: monospace;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: #232a36;
+      color: var(--cyan);
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-badge">RAPID</span>
+    <span>RAPID Studio 3D Simulator</span>
+  </div>
+
+  <div class="toolbar-controls">
+    <button id="btnRun" class="primary">&#9654; Run</button>
+    <button id="btnPause" disabled>&#10074;&#10074; Pause</button>
+    <button id="btnStep">Step</button>
+    <button id="btnReset">&#8634; Reset</button>
+
+    <select id="speedSelect" title="Playback Speed">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1.0x</option>
+      <option value="2">2.0x</option>
+      <option value="4">4.0x</option>
+    </select>
+
+    <button id="btnClearTrail">Clear Trail</button>
+    <span id="statusPill" class="status-pill">READY</span>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT PANEL -->
+  <section class="left-panel">
+    <div class="mode-tabs">
+      <button id="tabDemos" class="mode-tab active">Demo Programs</button>
+      <button id="tabCustom" class="mode-tab">Custom Code (Sandbox)</button>
+    </div>
+
+    <div id="demoToolbar" class="sub-toolbar">
+      <select id="presetSelect" title="Load Demo Program">
+        <option value="pick_place">Demo 1: Pick &amp; Place (tGripper)</option>
+        <option value="welding">Demo 2: Square Welding (tWelder)</option>
+        <option value="circular">Demo 3: Circular Arc (MoveC + tWelder)</option>
+        <option value="zone_demo">Demo 4: Zone Precision (fine vs z100)</option>
+        <option value="palletize">Demo 5: 2x2 Palletizing (FOR + Offs)</option>
+      </select>
+      <button id="btnCopyToCustom" title="Copy this demo into Custom Code tab" style="font-size:11.5px;">Fork to Custom</button>
+    </div>
+
+    <div id="customToolbar" class="sub-toolbar hidden">
+      <button id="btnTemplate" style="font-size:11.5px;">Starter Template</button>
+      <button id="btnImportMod" style="font-size:11.5px;">Load .mod</button>
+      <button id="btnExportMod" style="font-size:11.5px;">Save .mod</button>
+      <input type="file" id="fileInput" accept=".mod,.txt,.rapid" class="hidden" />
+    </div>
+
+    <div id="snippetBar" class="snippet-bar hidden">
+      <span style="font-size:10.5px; color:var(--text-dim); margin-right:2px;">Insert:</span>
+      <button class="snippet-btn" data-snippet="  CONST robtarget pNew := [[450, 0, 300], [0,1,0,0], [0,0,0,0], [9E9,9E9,9E9,9E9,9E9,9E9]];">+ robtarget</button>
+      <button class="snippet-btn" data-snippet="    MoveJ p1, v800, z50, tGripper;">+ MoveJ</button>
+      <button class="snippet-btn" data-snippet="    MoveL p1, v300, fine, tWelder;">+ MoveL</button>
+      <button class="snippet-btn" data-snippet="    MoveC pVia, pEnd, v300, fine, tWelder;">+ MoveC</button>
+      <button class="snippet-btn" data-snippet="    Set doGripper;">+ Gripper</button>
+      <button class="snippet-btn" data-snippet="    WaitTime 0.5;">+ Wait</button>
+      <button class="snippet-btn" data-snippet="    FOR i FROM 1 TO 3 DO\n      \n    ENDFOR">+ FOR</button>
+    </div>
+
+    <div class="panel-header">
+      <span id="fileTitle">MainModule.mod (Demo)</span>
+      <span id="activeLineBadge" style="color: var(--accent);">Line 1</span>
+    </div>
+
+    <div class="editor-wrapper">
+      <div id="lineNumbers" class="line-numbers">1</div>
+      <textarea id="codeEditor" spellcheck="false"></textarea>
+    </div>
+    <div id="errorBanner" class="error-banner"></div>
+
+    <div class="console-box">
+      <div class="panel-header">
+        <span>FlexPendant Console</span>
+        <button id="btnClearLog" style="padding: 2px 7px; font-size: 10.5px;">Clear</button>
+      </div>
+      <div id="consoleOutput"></div>
+    </div>
+  </section>
+
+  <!-- CENTER PANEL -->
+  <section class="viewport-panel">
+    <div class="progress-bar-wrap"><div id="progressBar"></div></div>
+    <div id="canvasContainer"></div>
+    <div class="viewport-hud">
+      <div class="legend-row">
+        <span><span class="dot" style="background: var(--cyan);"></span>MoveL (Linear)</span>
+        <span><span class="dot" style="background: var(--amber);"></span>MoveJ (Joint)</span>
+        <span><span class="dot" style="background: var(--emerald);"></span>MoveC (Arc)</span>
+        <span><span class="dot" style="background: #a855f7;"></span>Target</span>
+      </div>
+      <div>Left Drag: Orbit &nbsp;|&nbsp; Right Drag: Pan &nbsp;|&nbsp; Scroll: Zoom</div>
+    </div>
+  </section>
+
+  <!-- RIGHT PANEL -->
+  <section class="right-panel">
+    <div class="section">
+      <div class="section-title">
+        <span>TCP Coordinates (mm)</span>
+        <span id="cmdBadge" class="cmd-badge">IDLE</span>
+      </div>
+      <div class="tcp-grid">
+        <div class="metric-card">
+          <div class="metric-label" style="color:#ff6b6b;">X</div>
+          <div id="tcpX" class="metric-value">0.0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label" style="color:#51cf66;">Y</div>
+          <div id="tcpY" class="metric-value">0.0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label" style="color:#339af0;">Z</div>
+          <div id="tcpZ" class="metric-value">0.0</div>
+        </div>
+      </div>
+
+      <div class="io-row">
+        <div class="io-pill" title="Active RAPID Tool">
+          <span style="color:var(--text-dim);">Tool:</span>
+          <span id="activeToolVal" style="color:var(--accent); font-weight:700;">tool0</span>
+        </div>
+        <div class="io-pill" title="Active RAPID ZoneData">
+          <span style="color:var(--text-dim);">Zone:</span>
+          <span id="activeZoneVal" style="color:var(--cyan); font-weight:700;">fine</span>
+        </div>
+      </div>
+
+      <div class="io-row">
+        <div class="io-pill">
+          <span id="ledGripper" class="led"></span>
+          <span>doGripper</span>
+        </div>
+        <div class="io-pill">
+          <span id="ledWeld" class="led"></span>
+          <span>doWeld</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        <span>Manual Jog (6-Axis)</span>
+        <button id="btnHome" style="padding: 2px 8px; font-size: 10.5px;">Home</button>
+      </div>
+      <div id="jogContainer"></div>
+      <button id="btnTeach" class="btn-block">+ Teach Current TCP as robtarget</button>
+    </div>
+
+    <div class="section" style="border-bottom: none;">
+      <div class="section-title">Tools &amp; ZoneData</div>
+      <div style="font-size: 11.2px; color: var(--text-dim); line-height: 1.6; font-family: monospace;">
+        &bull; Tools: <span style="color:#e6edf3;">tGripper / tool0</span> or <span style="color:#e6edf3;">tWelder</span><br>
+        &bull; Zones: <span style="color:#e6edf3;">fine</span> (exact) vs <span style="color:#e6edf3;">z10..z200</span> (blended)<br>
+        &bull; Motion: MoveJ / MoveL / MoveC / Offs()<br>
+        &bull; Logic: FOR / WHILE / IF-ELSE / PROC
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+// =========================================================================
+// 1. DEMO & CUSTOM RAPID PROGRAMS
+// =========================================================================
+const DEMOS = {
+  pick_place: `MODULE MainModule
+  ! Uses tGripper tool and Offs() for Pick & Place between Station A and Station B
+  CONST robtarget pHome  := [[450, 0, 520], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pPick  := [[450, 260, 180], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pPlace := [[450, -260, 180], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+
+  PROC main()
+    TPWrite "Starting Pick & Place cycle with tGripper...";
+    Reset doGripper;
+
+    MoveJ pHome, v1000, z50, tGripper;
+    MoveJ Offs(pPick, 0, 0, 160), v800, z20, tGripper;
+
+    MoveL pPick, v200, fine, tGripper;
+    Set doGripper;
+    WaitTime 0.4;
+    TPWrite "Workpiece grasped at Station A";
+
+    MoveL Offs(pPick, 0, 0, 180), v300, z50, tGripper;
+    MoveJ Offs(pPlace, 0, 0, 180), v800, z20, tGripper;
+
+    MoveL pPlace, v200, fine, tGripper;
+    Reset doGripper;
+    WaitTime 0.4;
+    TPWrite "Workpiece placed at Station B";
+
+    MoveL Offs(pPlace, 0, 0, 180), v400, z20, tGripper;
+    MoveJ pHome, v1000, fine, tGripper;
+    TPWrite "Cycle complete!";
+  ENDPROC
+ENDMODULE`,
+
+  welding: `MODULE WeldingModule
+  ! Passing 'tWelder' automatically mounts the 3D Welding Torch on the flange
+  CONST robtarget pHome := [[420, 0, 540], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget p1    := [[380,  150, 220], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget p2    := [[600,  150, 220], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget p3    := [[600, -150, 220], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget p4    := [[380, -150, 220], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+
+  PROC main()
+    TPWrite "Mounting tWelder torch and approaching seam...";
+    MoveJ pHome, v1000, z50, tWelder;
+    MoveJ Offs(p1, 0, 0, 120), v800, z20, tWelder;
+    MoveL p1, v200, fine, tWelder;
+
+    Set doWeld;
+    TPWrite "Welding arc ON - tracing exact 'fine' square";
+    MoveL p2, v250, fine, tWelder;
+    MoveL p3, v250, fine, tWelder;
+    MoveL p4, v250, fine, tWelder;
+    MoveL p1, v250, fine, tWelder;
+    Reset doWeld;
+    TPWrite "Welding arc OFF";
+
+    MoveL Offs(p1, 0, 0, 140), v400, z20, tWelder;
+    MoveJ pHome, v1000, fine, tWelder;
+    TPWrite "Welding sequence finished!";
+  ENDPROC
+ENDMODULE`,
+
+  circular: `MODULE CircularModule
+  ! Demonstrates MoveC (3D circular arc interpolation) with tWelder
+  CONST robtarget pHome  := [[420, 0, 540], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pStart := [[480,  140, 260], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pVia1  := [[620,    0, 260], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pEnd1  := [[480, -140, 260], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pVia2  := [[340,    0, 260], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+
+  PROC main()
+    TPWrite "Tracing 360-degree circle with MoveC and tWelder...";
+    MoveJ pHome, v1000, z50, tWelder;
+    MoveL pStart, v400, fine, tWelder;
+
+    Set doWeld;
+    MoveC pVia1, pEnd1, v250, fine, tWelder;
+    MoveC pVia2, pStart, v250, fine, tWelder;
+    Reset doWeld;
+
+    MoveJ pHome, v1000, fine, tWelder;
+    TPWrite "Circular weld complete!";
+  ENDPROC
+ENDMODULE`,
+
+  zone_demo: `MODULE ZonePrecisionModule
+  ! Compares exact 'fine' corners (bottom square) vs rounded 'z100' corners (top square)
+  CONST robtarget pHome := [[420, 0, 540], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget p1    := [[380,  160, 220], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget p2    := [[620,  160, 220], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget p3    := [[620, -160, 220], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget p4    := [[380, -160, 220], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+
+  PROC main()
+    MoveJ pHome, v1000, z50, tWelder;
+
+    ! Pass 1: Exact 'fine' corners at Z = 220 mm
+    TPWrite "Pass 1: Tracing square with zone = fine (sharp 90 deg corners)";
+    MoveL p1, v500, fine, tWelder;
+    MoveL p2, v350, fine, tWelder;
+    MoveL p3, v350, fine, tWelder;
+    MoveL p4, v350, fine, tWelder;
+    MoveL p1, v350, fine, tWelder;
+
+    ! Pass 2: Blended 'z100' corners 100 mm higher (Z = 320 mm)
+    TPWrite "Pass 2: Tracing same square with zone = z100 (100 mm corner rounding)";
+    MoveL Offs(p1, 0, 0, 100), v500, fine, tWelder;
+    MoveL Offs(p2, 0, 0, 100), v350, z100, tWelder;
+    MoveL Offs(p3, 0, 0, 100), v350, z100, tWelder;
+    MoveL Offs(p4, 0, 0, 100), v350, z100, tWelder;
+    MoveL Offs(p1, 0, 0, 100), v350, fine, tWelder;
+
+    MoveJ pHome, v1000, fine, tWelder;
+    TPWrite "Compare the sharp (fine) vs rounded (z100) trails in 3D!";
+  ENDPROC
+ENDMODULE`,
+
+  palletize: `MODULE PalletizingModule
+  ! Demonstrates FOR loops and dynamic Offs() grid calculations with tGripper
+  CONST robtarget pHome   := [[420, 0, 540], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pOrigin := [[400, -120, 200], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+
+  PROC main()
+    TPWrite "Starting 2x2 Palletizing Pattern...";
+    MoveJ pHome, v1000, z50, tGripper;
+
+    FOR row FROM 0 TO 1 DO
+      FOR col FROM 0 TO 1 DO
+        MoveJ Offs(pOrigin, row*160, col*240, 140), v800, z20, tGripper;
+        MoveL Offs(pOrigin, row*160, col*240, 0), v250, fine, tGripper;
+        Set doGripper;
+        WaitTime 0.25;
+        Reset doGripper;
+        MoveL Offs(pOrigin, row*160, col*240, 140), v400, z20, tGripper;
+      ENDFOR
+    ENDFOR
+
+    MoveJ pHome, v1000, fine, tGripper;
+    TPWrite "2x2 Palletizing completed!";
+  ENDPROC
+ENDMODULE`
+};
+
+const CUSTOM_TEMPLATE = `MODULE CustomModule
+  ! Write your own ABB RAPID program here!
+  ! Use 'tGripper' (or tool0) for the gripper, or 'tWelder' for the welding torch.
+  ! Use 'fine' for exact corners or 'z50'/'z100' for rounded fly-by corners.
+  CONST robtarget pHome := [[450, 0, 500], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pA    := [[480,  160, 250], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+  CONST robtarget pB    := [[480, -160, 250], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];
+
+  PROC main()
+    TPWrite "Running Custom RAPID Program...";
+    MoveJ pHome, v1000, z50, tGripper;
+    MoveL pA, v400, z50, tWelder;
+    MoveL pB, v400, fine, tWelder;
+    MoveJ pHome, v1000, fine, tGripper;
+    TPWrite "Done!";
+  ENDPROC
+ENDMODULE`;
+
+let activeMode = "demos";
+let savedCustomCode = CUSTOM_TEMPLATE;
+
+// =========================================================================
+// 2. THREE.JS 3D SCENE & 6-AXIS ABB ROBOT ARM
+// =========================================================================
+const SCALE = 0.01;
+const L1 = 400 * SCALE;
+const L2 = 500 * SCALE;
+const L3 = 450 * SCALE;
+const L_TCP = 150 * SCALE;
+
+const container = document.getElementById("canvasContainer");
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x11151d, 0.016);
+
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 150);
+camera.position.set(11.5, 9.5, 11.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.target.set(3.2, 3.0, 0);
+controls.update();
+
+scene.add(new THREE.HemisphereLight(0xdbeafe, 0x1e2430, 0.7));
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.15);
+dirLight.position.set(10, 18, 12);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 2;
+dirLight.shadow.camera.far = 45;
+const dCam = 12;
+dirLight.shadow.camera.left = -dCam;
+dirLight.shadow.camera.right = dCam;
+dirLight.shadow.camera.top = dCam;
+dirLight.shadow.camera.bottom = -dCam;
+scene.add(dirLight);
+
+const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.45);
+rimLight.position.set(-10, 8, -10);
+scene.add(rimLight);
+
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 60),
+  new THREE.MeshStandardMaterial({ color: 0x161b24, roughness: 0.85, metalness: 0.1 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+const grid = new THREE.GridHelper(30, 30, 0x334155, 0x1e2633);
+grid.position.y = 0.01;
+scene.add(grid);
+
+function createAxisLine(dir, color) {
+  const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.02, 0), dir]);
+  return new THREE.Line(geo, new THREE.LineBasicMaterial({ color }));
+}
+scene.add(createAxisLine(new THREE.Vector3(2.5, 0.02, 0), 0xff4d4d));
+scene.add(createAxisLine(new THREE.Vector3(0, 0.02, -2.5), 0x4ade80));
+scene.add(createAxisLine(new THREE.Vector3(0, 2.52, 0), 0x38bdf8));
+
+function robotToThree(x, y, z) {
+  return new THREE.Vector3(x * SCALE, z * SCALE, -y * SCALE);
+}
+
+const matOrange = new THREE.MeshStandardMaterial({ color: 0xff6a00, roughness: 0.35, metalness: 0.45 });
+const matDark   = new THREE.MeshStandardMaterial({ color: 0x222730, roughness: 0.5, metalness: 0.65 });
+const matMetal  = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.25, metalness: 0.85 });
+const matCopper = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.25, metalness: 0.85 });
+
+function createStation(rx, ry, colorHex) {
+  const h = 150 * SCALE;
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(2.0, h, 2.0),
+    new THREE.MeshStandardMaterial({ color: 0x242b38, roughness: 0.7, metalness: 0.3 })
+  );
+  base.position.y = h / 2;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  g.add(base);
+
+  const pad = new THREE.Mesh(
+    new THREE.BoxGeometry(1.6, 0.06, 1.6),
+    new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5, metalness: 0.2 })
+  );
+  pad.position.y = h + 0.03;
+  pad.receiveShadow = true;
+  g.add(pad);
+
+  const pos = robotToThree(rx, ry, 0);
+  g.position.set(pos.x, 0, pos.z);
+  scene.add(g);
+}
+createStation(450, 260, 0x1d4ed8);
+createStation(450, -260, 0x0f766e);
+
+const workpieceSize = 60 * SCALE;
+const workpiece = new THREE.Mesh(
+  new THREE.BoxGeometry(workpieceSize, workpieceSize, workpieceSize),
+  new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.25, metalness: 0.6 })
+);
+workpiece.castShadow = true;
+workpiece.receiveShadow = true;
+scene.add(workpiece);
+
+let workpieceAttached = false;
+function resetWorkpiece() {
+  workpieceAttached = false;
+  workpiece.position.copy(robotToThree(450, 260, 180));
+  workpiece.rotation.set(0, 0, 0);
+}
+resetWorkpiece();
+
+const robotRoot = new THREE.Group();
+scene.add(robotRoot);
+
+const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.35, 1.2, 32), matDark);
+pedestal.position.y = 0.6;
+pedestal.castShadow = true;
+pedestal.receiveShadow = true;
+robotRoot.add(pedestal);
+
+const j1Group = new THREE.Group();
+robotRoot.add(j1Group);
+
+const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.1, 2.0, 28), matOrange);
+turret.position.y = 2.1;
+turret.castShadow = true;
+j1Group.add(turret);
+
+const shoulderHousing = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.3, 1.5), matOrange);
+shoulderHousing.position.set(0, L1 - 0.5, 0);
+shoulderHousing.castShadow = true;
+j1Group.add(shoulderHousing);
+
+const j2Group = new THREE.Group();
+j2Group.position.set(0, L1, 0);
+j1Group.add(j2Group);
+
+const j2Motor = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 1.75, 24), matDark);
+j2Motor.rotation.x = Math.PI / 2;
+j2Motor.castShadow = true;
+j2Group.add(j2Motor);
+
+const lowerArm = new THREE.Mesh(new THREE.BoxGeometry(0.75, L2, 0.78), matOrange);
+lowerArm.position.y = L2 / 2;
+lowerArm.castShadow = true;
+j2Group.add(lowerArm);
+
+const j3Group = new THREE.Group();
+j3Group.position.set(0, L2, 0);
+j2Group.add(j3Group);
+
+const j3Motor = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 1.35, 24), matDark);
+j3Motor.rotation.x = Math.PI / 2;
+j3Motor.castShadow = true;
+j3Group.add(j3Motor);
+
+const j4Group = new THREE.Group();
+j3Group.add(j4Group);
+
+const forearmRear = new THREE.Mesh(new THREE.BoxGeometry(0.68, 1.3, 0.72), matOrange);
+forearmRear.position.y = 0.65;
+forearmRear.castShadow = true;
+j4Group.add(forearmRear);
+
+const forearmTube = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, L3 - 1.1, 20), matOrange);
+forearmTube.position.y = 1.1 + (L3 - 1.1) / 2;
+forearmTube.castShadow = true;
+j4Group.add(forearmTube);
+
+const j5Group = new THREE.Group();
+j5Group.position.set(0, L3, 0);
+j4Group.add(j5Group);
+
+const j5Motor = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.8, 20), matDark);
+j5Motor.rotation.x = Math.PI / 2;
+j5Motor.castShadow = true;
+j5Group.add(j5Motor);
+
+// J6 Tool Flange with Swappable End-Effectors
+const j6Group = new THREE.Group();
+j5Group.add(j6Group);
+
+const wristNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, L_TCP * 0.42, 20), matDark);
+wristNeck.position.y = L_TCP * 0.21;
+j6Group.add(wristNeck);
+
+// --- TOOL 1: Parallel Gripper (tGripper / tool0) ---
+const gripperToolGroup = new THREE.Group();
+j6Group.add(gripperToolGroup);
+
+const gripperBase = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.45), matMetal);
+gripperBase.position.y = L_TCP * 0.52;
+gripperToolGroup.add(gripperBase);
+
+const fingerGeo = new THREE.BoxGeometry(0.11, L_TCP * 0.46, 0.22);
+const fingerLeft = new THREE.Mesh(fingerGeo, matDark);
+fingerLeft.position.set(-0.34, L_TCP * 0.79, 0);
+gripperToolGroup.add(fingerLeft);
+
+const fingerRight = new THREE.Mesh(fingerGeo, matDark);
+fingerRight.position.set(0.34, L_TCP * 0.79, 0);
+gripperToolGroup.add(fingerRight);
+
+// --- TOOL 2: Industrial MIG Welding Torch (tWelder) ---
+const welderToolGroup = new THREE.Group();
+welderToolGroup.visible = false;
+j6Group.add(welderToolGroup);
+
+const torchMount = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.26, L_TCP * 0.16, 20), matMetal);
+torchMount.position.y = L_TCP * 0.48;
+welderToolGroup.add(torchMount);
+
+const torchBody = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, L_TCP * 0.24, 20), matDark);
+torchBody.position.y = L_TCP * 0.66;
+welderToolGroup.add(torchBody);
+
+const torchNozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.14, L_TCP * 0.26, 20), matCopper);
+torchNozzle.position.y = L_TCP * 0.87;
+welderToolGroup.add(torchNozzle);
+
+// TCP Indicator & Welding Arc Light
+const tcpMarker = new THREE.Mesh(
+  new THREE.SphereGeometry(0.10, 16, 16),
+  new THREE.MeshBasicMaterial({ color: 0x00e5ff })
+);
+tcpMarker.position.y = L_TCP;
+j6Group.add(tcpMarker);
+
+const weldLight = new THREE.PointLight(0x38bdf8, 0, 5.5);
+weldLight.position.set(0, L_TCP, 0);
+j6Group.add(weldLight);
+
+const weldSpark = new THREE.Mesh(
+  new THREE.SphereGeometry(0.22, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0 })
+);
+weldSpark.position.y = L_TCP;
+j6Group.add(weldSpark);
+
+const trailGroup = new THREE.Group();
+scene.add(trailGroup);
+
+const targetGroup = new THREE.Group();
+scene.add(targetGroup);
+
+let lastTrailPoint = null;
+
+function clearTrail() {
+  while (trailGroup.children.length > 0) {
+    const obj = trailGroup.children.pop();
+    obj.geometry.dispose();
+    obj.material.dispose();
+  }
+  lastTrailPoint = null;
+}
+
+function addTrailSegment(tcp, cmd) {
+  if (cmd !== "MOVEL" && cmd !== "MOVEJ" && cmd !== "MOVEC") return;
+  const pt = robotToThree(tcp[0], tcp[1], tcp[2]);
+  if (lastTrailPoint && lastTrailPoint.distanceTo(pt) > 0.02) {
+    const color = cmd === "MOVEL" ? 0x00e5ff : (cmd === "MOVEC" ? 0x34d399 : 0xffaa00);
+    const geo = new THREE.BufferGeometry().setFromPoints([lastTrailPoint, pt]);
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.92 });
+    trailGroup.add(new THREE.Line(geo, mat));
+  }
+  lastTrailPoint = pt.clone();
+}
+
+function renderTargets(targetsObj) {
+  while (targetGroup.children.length > 0) {
+    const obj = targetGroup.children.pop();
+    obj.geometry.dispose();
+    obj.material.dispose();
+  }
+  Object.entries(targetsObj || {}).forEach(([name, coords]) => {
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.13, 14, 14),
+      new THREE.MeshBasicMaterial({ color: 0xa855f7 })
+    );
+    sphere.position.copy(robotToThree(coords[0], coords[1], coords[2]));
+    targetGroup.add(sphere);
+  });
+}
+
+// =========================================================================
+// 3. ROBOT POSE, TOOL SWAPPING & WORKPIECE UPDATE
+// =========================================================================
+let currentJoints = [0, 15, 75, 0, 90, 0];
+let currentTcp = [0, 0, 0];
+let targetGripperClosed = false;
+let currentGripperOffset = 0.34;
+let weldOn = false;
+
+function setActiveTool(toolKind, toolName) {
+  const isWelder = toolKind === "welder";
+  gripperToolGroup.visible = !isWelder;
+  welderToolGroup.visible = isWelder;
+  document.getElementById("activeToolVal").textContent = toolName || (isWelder ? "tWelder" : "tool0");
+}
+
+function applyRobotPose(joints, tcp, gripperClosed, weldActive, toolKind = "gripper", toolName = "tool0", zoneStr = "fine") {
+  currentJoints = joints;
+  currentTcp = tcp;
+  targetGripperClosed = !!gripperClosed;
+  weldOn = !!weldActive;
+
+  setActiveTool(toolKind, toolName);
+  document.getElementById("activeZoneVal").textContent = zoneStr || "fine";
+
+  const deg2rad = Math.PI / 180;
+  j1Group.rotation.y = joints[0] * deg2rad;
+  j2Group.rotation.z = -joints[1] * deg2rad;
+  j3Group.rotation.z = -joints[2] * deg2rad;
+  j4Group.rotation.y = joints[3] * deg2rad;
+  j5Group.rotation.z = -joints[4] * deg2rad;
+  j6Group.rotation.y = joints[5] * deg2rad;
+
+  const tcpPos = robotToThree(tcp[0], tcp[1], tcp[2]);
+  if (toolKind === "gripper" && targetGripperClosed && !workpieceAttached) {
+    if (tcpPos.distanceTo(workpiece.position) < 0.95) {
+      workpieceAttached = true;
+    }
+  } else if ((!targetGripperClosed || toolKind !== "gripper") && workpieceAttached) {
+    workpieceAttached = false;
+    if (workpiece.position.y > 1.7 && workpiece.position.y < 2.2) {
+      workpiece.position.y = 180 * SCALE;
+    }
+  }
+
+  if (workpieceAttached) {
+    workpiece.position.copy(tcpPos);
+  }
+
+  document.getElementById("tcpX").textContent = tcp[0].toFixed(1);
+  document.getElementById("tcpY").textContent = tcp[1].toFixed(1);
+  document.getElementById("tcpZ").textContent = tcp[2].toFixed(1);
+  document.getElementById("ledGripper").className = targetGripperClosed ? "led on-green" : "led";
+  document.getElementById("ledWeld").className = weldOn ? "led on-cyan" : "led";
+
+  joints.forEach((val, idx) => {
+    const sl = document.getElementById(`jog_${idx}`);
+    const lb = document.getElementById(`jogVal_${idx}`);
+    if (sl) sl.value = val;
+    if (lb) lb.textContent = `${val.toFixed(0)}°`;
+  });
+}
+
+// =========================================================================
+// 4. UI, MODE SWITCHING & PLAYBACK ENGINE
+// =========================================================================
+const codeEditor = document.getElementById("codeEditor");
+const lineNumbers = document.getElementById("lineNumbers");
+const consoleOutput = document.getElementById("consoleOutput");
+const errorBanner = document.getElementById("errorBanner");
+const statusPill = document.getElementById("statusPill");
+const progressBar = document.getElementById("progressBar");
+
+let frames = [];
+let frameIndex = 0;
+let isPlaying = false;
+let playbackSpeed = 1.0;
+let lastTimestamp = 0;
+let frameAccumulator = 0;
+let taughtCounter = 1;
+
+function logConsole(msg, type = "info") {
+  const div = document.createElement("div");
+  div.className = `log-entry ${type}`;
+  const time = new Date().toLocaleTimeString([], { hour12: false });
+  div.textContent = `[${time}] ${msg}`;
+  consoleOutput.appendChild(div);
+  consoleOutput.scrollTop = consoleOutput.scrollHeight;
+}
+
+function updateLineNumbers(activeLine = 1) {
+  const count = codeEditor.value.split("\n").length;
+  let html = "";
+  for (let i = 1; i <= count; i++) {
+    html += i === activeLine ? `<div class="active-ln">${i}</div>` : `<div>${i}</div>`;
+  }
+  lineNumbers.innerHTML = html;
+  document.getElementById("activeLineBadge").textContent = `Line ${activeLine}`;
+}
+
+codeEditor.addEventListener("input", () => {
+  if (activeMode === "custom") savedCustomCode = codeEditor.value;
+  updateLineNumbers(1);
+  frames = [];
+  frameIndex = 0;
+});
+
+codeEditor.addEventListener("scroll", () => {
+  lineNumbers.scrollTop = codeEditor.scrollTop;
+});
+
+function setStatus(text, cls = "") {
+  statusPill.textContent = text;
+  statusPill.className = `status-pill ${cls}`;
+}
+
+function resetPlaybackState() {
+  frames = [];
+  frameIndex = 0;
+  isPlaying = false;
+  clearTrail();
+  resetWorkpiece();
+  progressBar.style.width = "0%";
+  errorBanner.style.display = "none";
+  setStatus("READY");
+  document.getElementById("btnRun").disabled = false;
+  document.getElementById("btnPause").disabled = true;
+}
+
+function switchMode(mode) {
+  if (activeMode === "custom") savedCustomCode = codeEditor.value;
+  activeMode = mode;
+
+  const isCustom = mode === "custom";
+  document.getElementById("tabDemos").classList.toggle("active", !isCustom);
+  document.getElementById("tabCustom").classList.toggle("active", isCustom);
+  document.getElementById("demoToolbar").classList.toggle("hidden", isCustom);
+  document.getElementById("customToolbar").classList.toggle("hidden", !isCustom);
+  document.getElementById("snippetBar").classList.toggle("hidden", !isCustom);
+  document.getElementById("fileTitle").textContent = isCustom
+    ? "CustomModule.mod (Sandbox)"
+    : "MainModule.mod (Demo)";
+
+  if (isCustom) {
+    codeEditor.value = savedCustomCode;
+    logConsole("Switched to Custom Code Sandbox.", "info");
+  } else {
+    codeEditor.value = DEMOS[document.getElementById("presetSelect").value];
+  }
+  updateLineNumbers(1);
+  resetPlaybackState();
+}
+
+document.getElementById("tabDemos").addEventListener("click", () => switchMode("demos"));
+document.getElementById("tabCustom").addEventListener("click", () => switchMode("custom"));
+
+document.getElementById("btnCopyToCustom").addEventListener("click", () => {
+  savedCustomCode = codeEditor.value;
+  switchMode("custom");
+  logConsole("Copied current demo into Custom Code Sandbox.", "ok");
+});
+
+document.getElementById("btnTemplate").addEventListener("click", () => {
+  savedCustomCode = CUSTOM_TEMPLATE;
+  codeEditor.value = CUSTOM_TEMPLATE;
+  updateLineNumbers(1);
+  resetPlaybackState();
+  logConsole("Loaded blank RAPID starter template.", "info");
+});
+
+document.querySelectorAll(".snippet-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const snippet = btn.getAttribute("data-snippet").replace(/\\n/g, "\n") + "\n";
+    const start = codeEditor.selectionStart;
+    const end = codeEditor.selectionEnd;
+    codeEditor.value = codeEditor.value.slice(0, start) + snippet + codeEditor.value.slice(end);
+    codeEditor.selectionStart = codeEditor.selectionEnd = start + snippet.length;
+    codeEditor.focus();
+    savedCustomCode = codeEditor.value;
+    updateLineNumbers(1);
+    frames = [];
+    frameIndex = 0;
+  });
+});
+
+document.getElementById("btnImportMod").addEventListener("click", () => {
+  document.getElementById("fileInput").click();
+});
+
+document.getElementById("fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    savedCustomCode = ev.target.result;
+    codeEditor.value = savedCustomCode;
+    updateLineNumbers(1);
+    resetPlaybackState();
+    logConsole(`Imported ${file.name}`, "ok");
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+document.getElementById("btnExportMod").addEventListener("click", () => {
+  const blob = new Blob([codeEditor.value], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "CustomModule.mod";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  logConsole("Exported CustomModule.mod", "ok");
+});
+
+async function compileAndSimulate() {
+  errorBanner.style.display = "none";
+  try {
+    const res = await fetch("/api/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: codeEditor.value })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorBanner.textContent = data.error || "Compilation error";
+      errorBanner.style.display = "block";
+      setStatus("SYNTAX ERROR", "error");
+      logConsole(data.error, "err");
+      if (data.line) updateLineNumbers(data.line);
+      return false;
+    }
+
+    frames = data.frames || [];
+    frameIndex = 0;
+    clearTrail();
+    resetWorkpiece();
+    renderTargets(data.targets);
+    logConsole(data.summary, "ok");
+    return true;
+  } catch (err) {
+    logConsole(`Server connection error: ${err}`, "err");
+    setStatus("OFFLINE", "error");
+    return false;
+  }
+}
+
+function stepFrame() {
+  if (frameIndex >= frames.length) {
+    isPlaying = false;
+    setStatus("COMPLETED", "running");
+    document.getElementById("btnRun").disabled = false;
+    document.getElementById("btnPause").disabled = true;
+    return;
+  }
+
+  const fr = frames[frameIndex];
+  applyRobotPose(fr.joints, fr.tcp, fr.gripper, fr.weld, fr.tool, fr.tool_name, fr.zone);
+  addTrailSegment(fr.tcp, fr.cmd);
+  updateLineNumbers(fr.line);
+  document.getElementById("cmdBadge").textContent = fr.cmd;
+  if (fr.log) {
+    logConsole(fr.log, fr.log.startsWith("TPWrite") ? "tp" : "info");
+  }
+
+  const pct = frames.length > 1 ? (frameIndex / (frames.length - 1)) * 100 : 100;
+  progressBar.style.width = `${pct}%`;
+  frameIndex++;
+}
+
+document.getElementById("btnRun").addEventListener("click", async () => {
+  if (frameIndex === 0 || frameIndex >= frames.length) {
+    const ok = await compileAndSimulate();
+    if (!ok) return;
+  }
+  isPlaying = true;
+  setStatus("RUNNING", "running");
+  document.getElementById("btnRun").disabled = true;
+  document.getElementById("btnPause").disabled = false;
+});
+
+document.getElementById("btnPause").addEventListener("click", () => {
+  isPlaying = false;
+  setStatus("PAUSED");
+  document.getElementById("btnRun").disabled = false;
+  document.getElementById("btnPause").disabled = true;
+});
+
+document.getElementById("btnStep").addEventListener("click", async () => {
+  if (frames.length === 0 || frameIndex >= frames.length) {
+    const ok = await compileAndSimulate();
+    if (!ok) return;
+  }
+  isPlaying = false;
+  setStatus("STEP");
+  stepFrame();
+});
+
+document.getElementById("btnReset").addEventListener("click", async () => {
+  resetPlaybackState();
+  document.getElementById("cmdBadge").textContent = "IDLE";
+  await goHome();
+});
+
+document.getElementById("btnClearTrail").addEventListener("click", clearTrail);
+document.getElementById("btnClearLog").addEventListener("click", () => { consoleOutput.innerHTML = ""; });
+document.getElementById("speedSelect").addEventListener("change", (e) => { playbackSpeed = parseFloat(e.target.value); });
+
+document.getElementById("presetSelect").addEventListener("change", (e) => {
+  loadDemo(e.target.value);
+});
+
+function loadDemo(key) {
+  codeEditor.value = DEMOS[key];
+  updateLineNumbers(1);
+  resetPlaybackState();
+  logConsole(`Loaded preset: ${key}`, "info");
+}
+
+// =========================================================================
+// 5. MANUAL JOG SLIDERS & TEACH POINT
+// =========================================================================
+const JOINT_LIMITS = [
+  [-180, 180], [-110, 110], [-135, 150],
+  [-180, 180], [-120, 120], [-180, 180]
+];
+
+const jogContainer = document.getElementById("jogContainer");
+JOINT_LIMITS.forEach(([min, max], idx) => {
+  const row = document.createElement("div");
+  row.className = "jog-row";
+  row.innerHTML = `
+    <span class="jog-label">J${idx + 1}</span>
+    <input type="range" id="jog_${idx}" class="jog-slider" min="${min}" max="${max}" step="1" value="${currentJoints[idx]}">
+    <span id="jogVal_${idx}" class="jog-val">${currentJoints[idx]}°</span>
+  `;
+  jogContainer.appendChild(row);
+
+  row.querySelector("input").addEventListener("input", async (e) => {
+    if (isPlaying) return;
+    currentJoints[idx] = parseFloat(e.target.value);
+    const res = await fetch("/api/fk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ joints: currentJoints })
+    });
+    const fk = await res.json();
+    if (res.ok) {
+      const curKind = welderToolGroup.visible ? "welder" : "gripper";
+      const curName = document.getElementById("activeToolVal").textContent;
+      applyRobotPose(currentJoints, fk.tcp, targetGripperClosed, weldOn, curKind, curName, "JOG");
+      document.getElementById("cmdBadge").textContent = "JOG";
+    }
+  });
+});
+
+async function goHome() {
+  const res = await fetch("/api/home");
+  const data = await res.json();
+  applyRobotPose(data.joints, data.tcp, false, false, "gripper", "tool0", "fine");
+}
+
+document.getElementById("btnHome").addEventListener("click", goHome);
+
+document.getElementById("btnTeach").addEventListener("click", () => {
+  const [x, y, z] = currentTcp.map(v => Math.round(v));
+  const line = `  CONST robtarget pTaught${taughtCounter++} := [[${x}, ${y}, ${z}], [0, 1, 0, 0], [0, 0, 0, 0], [9E9,9E9,9E9,9E9,9E9,9E9]];`;
+  const lines = codeEditor.value.split("\n");
+  lines.splice(1, 0, line);
+  codeEditor.value = lines.join("\n");
+  if (activeMode === "custom") savedCustomCode = codeEditor.value;
+  updateLineNumbers(2);
+  frames = [];
+  frameIndex = 0;
+  logConsole(`Taught robtarget at [${x}, ${y}, ${z}] mm`, "ok");
+});
+
+// =========================================================================
+// 6. RENDER LOOP
+// =========================================================================
+window.addEventListener("resize", () => {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+function animate(timestamp) {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000 || 0.016);
+  lastTimestamp = timestamp;
+
+  if (isPlaying && frames.length > 0) {
+    frameAccumulator += dt * 30 * playbackSpeed;
+    while (frameAccumulator >= 1 && isPlaying) {
+      stepFrame();
+      frameAccumulator -= 1;
+    }
+  }
+
+  const goalOffset = targetGripperClosed ? 0.25 : 0.37;
+  currentGripperOffset += (goalOffset - currentGripperOffset) * 0.22;
+  fingerLeft.position.x = -currentGripperOffset;
+  fingerRight.position.x = currentGripperOffset;
+
+  if (weldOn) {
+    weldLight.intensity = 2.8 + Math.random() * 2.5;
+    weldSpark.material.opacity = 0.75 + Math.random() * 0.25;
+    const s = 0.8 + Math.random() * 0.6;
+    weldSpark.scale.set(s, s, s);
+  } else {
+    weldLight.intensity = 0;
+    weldSpark.material.opacity = 0;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+loadDemo("pick_place");
+goHome();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
